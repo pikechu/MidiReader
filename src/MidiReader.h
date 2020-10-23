@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <fstream>
 #include <string>
+#include <iostream>
 
 enum Format : uint16_t
 {
@@ -43,8 +44,12 @@ struct MidiHeader
     Format m_format;
     short m_ntracks;
     short m_tickdiv;
+
+    // 防止内存对齐导致读取错误
+    static int get_struct_size(){ return sizeof(char) * 4 + sizeof(uint32_t) + sizeof(Format) + sizeof(short) + sizeof(short); }
 };
 
+#if 0
 struct DeltaTime
 {
     uint32_t total = 0;
@@ -255,17 +260,30 @@ struct MidiFile
     MidiHeader header;
     MidiTrack tracks[header.m_ntracks];
 };
+#endif
 
 class MidiReader
 {
 public:
-    void open_file(std::string file_path);
+    bool open_file(std::string file_path);
+
+    bool read_header();
+
     MidiReader();
+    MidiReader(std::string file_path);
     ~MidiReader();
 
 private:
-    int size;
+    // 文件总大小
+    int file_size;
+    // 当前读到的位置
+    int current_pos;
     std::fstream fs;
+    std::vector<char> buff;
+
+    bool is_file_opened(){ return fs.is_open(); }
+    bool read(int byte_num);
+
 };
 
 
