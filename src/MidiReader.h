@@ -7,8 +7,10 @@
 #include <fstream>
 #include <string>
 #include <iostream>
+#include <memory>
 
-enum Format : uint16_t
+
+enum Format : int16_t
 {
     MIDI_SINGLE = 0,
     MIDI_MULTIPLE = 1,
@@ -40,16 +42,17 @@ enum Type : char
 struct MidiHeader
 {
     char m_magic[4];
-    uint32_t m_seclen;
+    int32_t m_seclen;
     Format m_format;
-    short m_ntracks;
-    short m_tickdiv;
+    int16_t m_ntracks;
+    int16_t m_tickdiv;
 
     // 防止内存对齐导致读取错误
-    static int get_struct_size(){ return sizeof(char) * 4 + sizeof(uint32_t) + sizeof(Format) + sizeof(short) + sizeof(short); }
+    static int get_header_size(){ return sizeof(char) * 4 + sizeof(uint32_t) + sizeof(Format) + sizeof(short) + sizeof(short); }
 };
 
-#if 0
+#define TEST
+#ifndef TEST
 struct DeltaTime
 {
     uint32_t total = 0;
@@ -279,11 +282,14 @@ private:
     // 当前读到的位置
     int current_pos;
     std::fstream fs;
-    std::vector<char> buff;
+
+    std::shared_ptr<char> buff;
+    MidiHeader midi_header;
 
     bool is_file_opened(){ return fs.is_open(); }
     bool read(int byte_num);
-
+    void buff_clean();
+    void init();
 };
 
 
