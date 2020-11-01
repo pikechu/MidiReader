@@ -47,37 +47,35 @@ struct MidiHeader
     int16_t m_ntracks;
     int16_t m_tickdiv;
 
+
     // 防止内存对齐导致读取错误
     static int get_header_size(){ return sizeof(char) * 4 + sizeof(uint32_t) + sizeof(Format) + sizeof(short) + sizeof(short); }
 };
 
-#define TEST
+//#define TEST
 #ifndef TEST
 struct DeltaTime
 {
     uint32_t total = 0;
     char t0;
-    total += t0 & 0x7f;
-    if (!(t0 & 0x80))
-        break;
-
-    total <<= 7;
     char t1;
-    total += t1 & 0x7f;
-    if (!(t1 & 0x80))
-        break;
-
-    total <<= 7;
     char t2;
-    total += t2 & 0x7f;
-    if (!(t2 & 0x80))
-        break;
-
-    total <<= 7;
     char t3;
-    total += t3 & 0x7f;
-    if (!(t3 & 0x80))
-        break;
+
+    DeltaTime(uint32_t tot, char t_0, char t_1, char t_2, char t_3) : total(tot), t0(t_0), t1(t_1), t2(t_2), t3(t_3)
+    {
+        total += t0 & 0x7f;
+        if (!(t0 & 0x80)) return;
+        total <<= 7;
+        total += t1 & 0x7f;
+        if (!(t1 & 0x80)) return;
+        total <<= 7;
+        total += t2 & 0x7f;
+        if (!(t2 & 0x80)) return;
+        total <<= 7;
+        total += t3 & 0x7f;
+        if (!(t3 & 0x80)) return;
+    }
 };
 
 char lastStatus = 0;
@@ -86,87 +84,119 @@ struct MetaEvent
 {
     Type m_type;
     DeltaTime m_length;
-    if (m_type == META_SEQUENCE_NUM)
+    
+    //可选
+    short m_seqNum;
+    std::string m_text;
+    std::string m_copyright;
+    std::string m_name;
+    std::string m_lyric;
+    std::string m_marker;
+    std::string m_cuePoint;
+    std::string m_programName;
+    std::string m_deviceName;
+    char m_channelPrefix;
+    char m_port;
+    uint32_t m_usecPerQuarterNote;// : 24; 位域
+    uint32_t m_bpm = 60000000 / m_usecPerQuarterNote;
+    char m_hours;
+    char m_mins;
+    char m_secs;
+    char m_fps;
+    char m_fracFrames;
+    char m_numerator;
+    char m_denominator;
+    char m_clocksPerClick;
+    char m_32ndPer4th;
+    char m_flatsSharps;
+    char m_majorMinor;
+    std::string m_data;
+
+    void init()
     {
-        short m_seqNum;
+        if (m_type == META_SEQUENCE_NUM)
+        {
+            short m_seqNum;
+        }
+        else if (m_type == META_TEXT)
+        {
+            char m_text[m_length.total];
+        }
+        else if (m_type == META_COPYRIGHT)
+        {
+            char m_copyright[m_length.total];
+        }
+        else if (m_type == META_SEQUENCE_NAME)
+        {
+            char m_name[m_length.total];
+        }
+        else if (m_type == META_INSTRUMENT_NAME)
+        {
+            char m_name[m_length.total];
+        }
+        else if (m_type == META_LYRIC)
+        {
+            char m_lyric[m_length.total];
+        }
+        else if (m_type == META_MARKER)
+        {
+            char m_marker[m_length.total];
+        }
+        else if (m_type == META_CUE_POINT)
+        {
+            char m_cuePoint[m_length.total];
+        }
+        else if (m_type == META_PROGRAM_NAME)
+        {
+            char m_programName[m_length.total];
+        }
+        else if (m_type == META_DEVICE_NAME)
+        {
+            char m_deviceName[m_length.total];
+        }
+        else if (m_type == META_MIDI_CHANNEL_PREFIX)
+        {
+            char m_channelPrefix;
+        }
+        else if (m_type == META_MIDI_PORT)
+        {
+            char m_port;
+        }
+        else if (m_type == META_END_OF_TRACK)
+        {
+        }
+        else if (m_type == META_TEMPO)
+        {
+            uint32_t m_usecPerQuarterNote;// : 24; 位域
+            uint32_t m_bpm = 60000000 / m_usecPerQuarterNote;
+            FSeek(FTell() - 1);
+        }
+        else if (m_type == META_SMPTE_OFFSET)
+        {
+            char m_hours;
+            char m_mins;
+            char m_secs;
+            char m_fps;
+            char m_fracFrames;
+        }
+        else if (m_type == META_TIME_SIGNATURE)
+        {
+            char m_numerator;
+            char m_denominator;
+            char m_clocksPerClick;
+            char m_32ndPer4th;
+        }
+        else if (m_type == META_KEY_SIGNATURE)
+        {
+            char m_flatsSharps;
+            char m_majorMinor;
+        }
+        else
+        {
+            char m_data[m_length.total];
+        }
     }
-    else if (m_type == META_TEXT)
-    {
-        char m_text[m_length.total];
-    }
-    else if (m_type == META_COPYRIGHT)
-    {
-        char m_copyright[m_length.total];
-    }
-    else if (m_type == META_SEQUENCE_NAME)
-    {
-        char m_name[m_length.total];
-    }
-    else if (m_type == META_INSTRUMENT_NAME)
-    {
-        char m_name[m_length.total];
-    }
-    else if (m_type == META_LYRIC)
-    {
-        char m_lyric[m_length.total];
-    }
-    else if (m_type == META_MARKER)
-    {
-        char m_marker[m_length.total];
-    }
-    else if (m_type == META_CUE_POINT)
-    {
-        char m_cuePoint[m_length.total];
-    }
-    else if (m_type == META_PROGRAM_NAME)
-    {
-        char m_programName[m_length.total];
-    }
-    else if (m_type == META_DEVICE_NAME)
-    {
-        char m_deviceName[m_length.total];
-    }
-    else if (m_type == META_MIDI_CHANNEL_PREFIX)
-    {
-        char m_channelPrefix;
-    }
-    else if (m_type == META_MIDI_PORT)
-    {
-        char m_port;
-    }
-    else if (m_type == META_END_OF_TRACK)
-    {
-    }
-    else if (m_type == META_TEMPO)
-    {
-        uint32_t m_usecPerQuarterNote : 24;
-        uint32_t m_bpm = 60000000 / m_usecPerQuarterNote;
-        FSeek(FTell() - 1);
-    }
-    else if (m_type == META_SMPTE_OFFSET)
-    {
-        char m_hours;
-        char m_mins;
-        char m_secs;
-        char m_fps;
-        char m_fracFrames;
-    }
-    else if (m_type == META_TIME_SIGNATURE)
-    {
-        char m_numerator;
-        char m_denominator;
-        char m_clocksPerClick;
-        char m_32ndPer4th;
-    }
-    else if (m_type == META_KEY_SIGNATURE)
-    {
-        char m_flatsSharps;
-        char m_majorMinor;
-    }
-    else
-    {
-        char m_data[m_length.total];
-    }
+
 };
 
 struct MidiMessage
@@ -261,7 +291,9 @@ struct MidiTrack
 struct MidiFile
 {
     MidiHeader header;
-    MidiTrack tracks[header.m_ntracks];
+    std::vector<MidiTrack> tracks;// [header.m_ntracks];
+
+    MidiFile(){};
 };
 #endif
 
@@ -269,7 +301,8 @@ class MidiReader
 {
 public:
     bool open_file(std::string file_path);
-
+    bool read_file();
+    bool read_track();
     bool read_header();
 
     MidiReader();
@@ -281,15 +314,19 @@ private:
     int file_size;
     // 当前读到的位置
     int current_pos;
+   
+    bool is_read_header_ok;
     std::fstream fs;
 
     std::shared_ptr<char> buff;
-    MidiHeader midi_header;
+
+    MidiFile midi_file;
 
     bool is_file_opened(){ return fs.is_open(); }
     bool read(int byte_num);
     void buff_clean();
     void init();
+    template<typename T> bool read_type(const T &t, void* addr, size_t len = 0);
 };
 
 

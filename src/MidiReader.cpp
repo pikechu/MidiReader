@@ -7,16 +7,24 @@ void bzero(void* ptr, size_t sz)
 }
 
 // ´óÐ¡¶Ë×ª»»
-void EndianSwap(char *pData, int startIndex, int length)
+void EndianSwap(char *pData, int length)
 {
-    int i, start;
-    start = startIndex;
-    uint8_t tmp;
-    for (i = 0; i < length; i += 2)
+    if (length <= 1) return;
+    if (length == 2)
     {
-        tmp = pData[start + i];
-        pData[start + i] = pData[start + i + 1];
-        pData[start + i + 1] = tmp;
+        std::swap(pData[0], pData[1]);
+    }
+    if (length == 4)
+    {
+        std::swap(pData[0], pData[3]);
+        std::swap(pData[1], pData[2]);
+    }
+    if (length == 8)
+    {
+        std::swap(pData[0], pData[7]);
+        std::swap(pData[1], pData[6]);
+        std::swap(pData[2], pData[5]);
+        std::swap(pData[3], pData[4]);
     }
 }
 
@@ -30,7 +38,7 @@ void MidiReader::init()
     fs.seekg(0, fs.end);
     if (file_size < fs.tellg())
     {
-        file_size = fs.tellg();
+        file_size = (int)fs.tellg();
         buff.reset(new char[file_size]);
     }
     fs.seekg(0);
@@ -53,6 +61,7 @@ MidiReader::MidiReader(std::string file_path)
         PRINT_ERROR(ERROR_READ_FILE)
     }
     init();
+    is_read_header_ok = false;
 };
 
 MidiReader::~MidiReader()
@@ -85,26 +94,45 @@ bool MidiReader::read(int byte_num)
     return true;
 }
 
-bool MidiReader::read_header()
+template<typename T>
+bool MidiReader::read_type(const T &t, void* addr, size_t len)
 {
-
-    std::cout << sizeof(MidiHeader) << " " << MidiHeader::get_header_size() << std::endl;
-    int header_size = MidiHeader::get_header_size();
-    if (!read(header_size))
+    size_t sz = sizeof(t);
+    if (read(sz))
+    {
+        memcpy_s(addr, sz, buff.get(), sz);
+        EndianSwap((char *)&t, len ? len : sz);   
+        return true;
+    }
+    else
     {
         PRINT_ERROR(ERROR_READ_HEADER)
-        return false;
+            return false;
     }
-    MidiHeader midi_header;
-    memcpy_s(&midi_header, header_size, buff.get(), header_size);
-    EndianSwap((char *)&(midi_header.m_magic) + 4, 0, header_size - sizeof(midi_header.m_magic));
-    // test
-    std::cout << midi_header.m_magic << "add=" << &midi_header.m_magic << std::endl;
-    std::cout << midi_header.m_seclen << "add=" << &midi_header.m_seclen << std::endl;
-    std::cout << midi_header.m_format << "add=" << &midi_header.m_format << std::endl;
-    std::cout << midi_header.m_ntracks << "add=" << &midi_header.m_ntracks << std::endl;
-    std::cout << midi_header.m_tickdiv << "add=" << &midi_header.m_tickdiv << std::endl;
+    RaiseException()
+}
 
-    return true;
+bool MidiReader::read_header()
+{
+    if (read_type(midi_file.header.m_magic, &midi_file.header.m_magic, 1) &&
+        read_type(midi_file.header.m_seclen, &midi_file.header.m_seclen) &&
+        read_type(midi_file.header.m_format, &midi_file.header.m_format) &&
+        read_type(midi_file.header.m_ntracks, &midi_file.header.m_ntracks) &&
+        read_type(midi_file.header.m_tickdiv, &midi_file.header.m_tickdiv))
+    {
+        is_read_header_ok = true;
+        return true;
+    }
+    return false;
+}
+
+bool MidiReader::read_file()
+{
+    read_header();
+    if (is_read_header_ok && read_track())
+    {
+        return true;      
+    }
+    return false;
 }
 
