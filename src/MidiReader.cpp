@@ -112,6 +112,16 @@ bool MidiReader::read_type(const T &t, void* addr, size_t len)
     RaiseException()
 }
 
+bool MidiReader::read_file()
+{
+    read_header();
+    if (is_read_header_ok && read_tracks())
+    {
+        return true;
+    }
+    return false;
+}
+
 bool MidiReader::read_header()
 {
     if (read_type(midi_file.header.m_magic, &midi_file.header.m_magic, 1) &&
@@ -126,13 +136,25 @@ bool MidiReader::read_header()
     return false;
 }
 
-bool MidiReader::read_file()
+bool MidiReader::read_tracks()
 {
-    read_header();
-    if (is_read_header_ok && read_track())
+    if (read_type(midi_file.tracks.m_magic, &midi_file.tracks.m_magic, 1) &&
+        read_type(midi_file.tracks.m_seclen, &midi_file.tracks.m_seclen))
     {
-        return true;      
+        uint32_t remaining = midi_file.tracks.m_seclen;
+        while (remaining) {
+            midi_file.tracks.m_midi_messages.push_back(MidiMessage());
+            MidiMessage &message = midi_file.tracks.m_midi_messages.back();
+            if (!read_messages()) return false;
+            remaining -= sizeof(message);
+        }
+        return true;
     }
     return false;
 }
 
+
+bool MidiReader::read_messages()
+{
+
+}

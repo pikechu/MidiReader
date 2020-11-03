@@ -50,6 +50,7 @@ struct MidiHeader
 
     // 防止内存对齐导致读取错误
     static int get_header_size(){ return sizeof(char) * 4 + sizeof(uint32_t) + sizeof(Format) + sizeof(short) + sizeof(short); }
+    MidiHeader(){};
 };
 
 //#define TEST
@@ -62,8 +63,16 @@ struct DeltaTime
     char t2;
     char t3;
 
-    DeltaTime(uint32_t tot, char t_0, char t_1, char t_2, char t_3) : total(tot), t0(t_0), t1(t_1), t2(t_2), t3(t_3)
+    DeltaTime(){};
+
+    void init(uint32_t tot, char t_0, char t_1, char t_2, char t_3)
     {
+        total = tot;
+        t0 = t_0;
+        t1 = t_1;
+        t2 = t_2;
+        t3 = t_3;
+
         total += t0 & 0x7f;
         if (!(t0 & 0x80)) return;
         total <<= 7;
@@ -77,8 +86,6 @@ struct DeltaTime
         if (!(t3 & 0x80)) return;
     }
 };
-
-char lastStatus = 0;
 
 struct MetaEvent
 {
@@ -97,7 +104,7 @@ struct MetaEvent
     std::string m_deviceName;
     char m_channelPrefix;
     char m_port;
-    uint32_t m_usecPerQuarterNote;// : 24; 位域
+    uint32_t m_usecPerQuarterNote : 24; //位域24
     uint32_t m_bpm = 60000000 / m_usecPerQuarterNote;
     char m_hours;
     char m_mins;
@@ -167,7 +174,7 @@ struct MetaEvent
         }
         else if (m_type == META_TEMPO)
         {
-            uint32_t m_usecPerQuarterNote;// : 24; 位域
+            uint32_t m_usecPerQuarterNote : 24; //位域
             uint32_t m_bpm = 60000000 / m_usecPerQuarterNote;
             FSeek(FTell() - 1);
         }
@@ -196,102 +203,150 @@ struct MetaEvent
             char m_data[m_length.total];
         }
     }
+};
 
+// message inner structs
+struct NoteOffEvent
+{
+    char m_note;
+    char m_velocity;
+
+    NoteOffEvent(){};
+};
+
+struct NoteOnEvent
+{
+    char m_note;
+    char m_velocity;
+
+    NoteOnEvent(){};
+};
+
+struct NotePressureEvent
+{
+    char m_note;
+    char m_pressure;
+
+    NotePressureEvent(){};
+};
+
+struct ControllerEvent
+{
+    char m_controller;
+    char m_value;
+
+    ControllerEvent(){};
+};
+
+struct ProgramEvent
+{
+    char m_program;
+
+    ProgramEvent(){};
+};
+
+struct ChannelPressureEvent
+{
+    char m_pressure;
+
+    ChannelPressureEvent(){};
+};
+
+struct PitchBendEvent
+{
+    char m_lsb;
+    char m_msb;
+
+    PitchBendEvent(){};
+};
+
+struct SysexEvent
+{
+    DeltaTime m_length;
+    std::vector<char> m_message;
+
+    SysexEvent(){};
 };
 
 struct MidiMessage
 {
     DeltaTime m_dtime;
     char m_status;
-    if (m_status & 0x80)
-        lastStatus = m_status;
-    else
-        FSeek(FTell() - 1);
+    char lastStatus = 0;
 
-    char m_channel = lastStatus & 0xf;
-    if ((lastStatus & 0xf0) == 0x80)
+    // 可选
+    char m_channel;
+    NoteOffEvent note_off_event;
+    NoteOnEvent note_on_event;
+    NotePressureEvent note_pressure_event;
+    ControllerEvent controller_event;
+    ProgramEvent program_event;
+    ChannelPressureEvent channel_pressure_event;
+    PitchBendEvent pitch_bend_event;
+    MetaEvent meta_event;
+
+
+    void init()
     {
-        struct
+        if (m_status & 0x80)
+            lastStatus = m_status;
+        else
+            FSeek(FTell() - 1);
+
+        char m_channel = lastStatus & 0xf;
+        if ((lastStatus & 0xf0) == 0x80)
         {
-            char m_note;
-            char m_velocity;
-        } note_off_event;
-    }
-    else if ((lastStatus & 0xf0) == 0x90)
-    {
-        struct
+            NoteOffEvent note_off_event;
+        }
+        else if ((lastStatus & 0xf0) == 0x90)
         {
-            char m_note;
-            char m_velocity;
-        } note_on_event;
-    }
-    else if ((lastStatus & 0xf0) == 0xA0)
-    {
-        struct
+            NoteOnEvent note_on_event;
+        }
+        else if ((lastStatus & 0xf0) == 0xA0)
         {
-            char m_note;
-            char m_pressure;
-        } note_pressure_event;
-    }
-    else if ((lastStatus & 0xf0) == 0xB0)
-    {
-        struct
+            NotePressureEvent note_pressure_event;
+        }
+        else if ((lastStatus & 0xf0) == 0xB0)
         {
-            char m_controller;
-            char m_value;
-        } controller_event;
-    }
-    else if ((lastStatus & 0xf0) == 0xC0)
-    {
-        struct
+            ControllerEvent controller_event;
+        }
+        else if ((lastStatus & 0xf0) == 0xC0)
         {
-            char m_program;
-        } program_event;
-    }
-    else if ((lastStatus & 0xf0) == 0xD0)
-    {
-        struct
+            ProgramEvent program_event;
+        }
+        else if ((lastStatus & 0xf0) == 0xD0)
         {
-            char m_pressure;
-        } channel_pressure_event;
-    }
-    else if ((lastStatus & 0xf0) == 0xE0)
-    {
-        struct
+            ChannelPressureEvent channel_pressure_event;
+        }
+        else if ((lastStatus & 0xf0) == 0xE0)
         {
-            char m_lsb;
-            char m_msb;
-        } pitch_bend_event;
-    }
-    else if (lastStatus == -1)
-    {
-        MetaEvent meta_event;
-    }
-    else if ((lastStatus & 0xf0) == 0xF0)
-    {
-        struct
+            PitchBendEvent pitch_bend_event;
+        }
+        else if (lastStatus == -1)
         {
-            DeltaTime m_length;
-            char m_message[m_length.total];
-        } sysex_event;
+            MetaEvent meta_event;
+        }
+        else if ((lastStatus & 0xf0) == 0xF0)
+        {
+            SysexEvent sysex_event;
+        }
     }
+    MidiMessage(){};
 };
 
 struct MidiTrack
 {
     char m_magic[4];
     uint32_t m_seclen;
-    uint32_t remaining = m_seclen;
-    while (remaining) {
-        MidiMessage message;
-        remaining -= sizeof(message);
-    }
+    std::vector<MidiMessage> m_midi_messages;
+
+    MidiTrack(){};
 };
 
 struct MidiFile
 {
     MidiHeader header;
-    std::vector<MidiTrack> tracks;// [header.m_ntracks];
+    MidiTrack tracks;// [header.m_ntracks];
 
     MidiFile(){};
 };
@@ -302,8 +357,11 @@ class MidiReader
 public:
     bool open_file(std::string file_path);
     bool read_file();
-    bool read_track();
+    template<typename T> bool read_type(const T &t, void* addr, size_t len = 0);
     bool read_header();
+    bool read_tracks();
+    // track inner
+    bool read_messages();
 
     MidiReader();
     MidiReader(std::string file_path);
@@ -326,7 +384,7 @@ private:
     bool read(int byte_num);
     void buff_clean();
     void init();
-    template<typename T> bool read_type(const T &t, void* addr, size_t len = 0);
+
 };
 
 
