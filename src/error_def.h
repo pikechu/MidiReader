@@ -15,6 +15,7 @@ enum ERROR_CODE
     ERROR_OVER_RANGE = -3,
     // 读取文件头错误
     ERROR_READ_HEADER = -4,
+    ERROR_READ_STRING = -5,
 };
 
 
@@ -36,6 +37,9 @@ const char* get_error_msg(ERROR_CODE error_code)
         break;
     case ERROR_READ_HEADER:
         return "read header failed";
+        break;
+    case ERROR_READ_STRING:
+        return "read str failed";
         break;
     default:
         return "";

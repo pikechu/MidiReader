@@ -288,48 +288,7 @@ struct MidiMessage
 
     void init()
     {
-        if (m_status & 0x80)
-            lastStatus = m_status;
-        else
-            FSeek(FTell() - 1);
 
-        char m_channel = lastStatus & 0xf;
-        if ((lastStatus & 0xf0) == 0x80)
-        {
-            NoteOffEvent note_off_event;
-        }
-        else if ((lastStatus & 0xf0) == 0x90)
-        {
-            NoteOnEvent note_on_event;
-        }
-        else if ((lastStatus & 0xf0) == 0xA0)
-        {
-            NotePressureEvent note_pressure_event;
-        }
-        else if ((lastStatus & 0xf0) == 0xB0)
-        {
-            ControllerEvent controller_event;
-        }
-        else if ((lastStatus & 0xf0) == 0xC0)
-        {
-            ProgramEvent program_event;
-        }
-        else if ((lastStatus & 0xf0) == 0xD0)
-        {
-            ChannelPressureEvent channel_pressure_event;
-        }
-        else if ((lastStatus & 0xf0) == 0xE0)
-        {
-            PitchBendEvent pitch_bend_event;
-        }
-        else if (lastStatus == -1)
-        {
-            MetaEvent meta_event;
-        }
-        else if ((lastStatus & 0xf0) == 0xF0)
-        {
-            SysexEvent sysex_event;
-        }
     }
     MidiMessage(){};
 };
@@ -357,11 +316,16 @@ class MidiReader
 public:
     bool open_file(std::string file_path);
     bool read_file();
-    template<typename T> bool read_type(const T &t, void* addr, size_t len = 0);
+    // len指定读取的结构大小(只有大于1才会进行大小端转换)
+    template<typename T> bool read_var(const T &t, void* addr, size_t len = 0);
+    bool read_str(std::string &str, size_t len);
     bool read_header();
     bool read_tracks();
     // track inner
-    bool read_messages();
+    bool read_messages(MidiMessage &message);
+    bool read_delta_time(DeltaTime &dt);
+    bool read_meta_event(MetaEvent &me);
+    bool read_sysex_event(SysexEvent &se);
 
     MidiReader();
     MidiReader(std::string file_path);
