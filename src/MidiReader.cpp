@@ -10,21 +10,9 @@ void bzero(void* ptr, size_t sz)
 void EndianSwap(char *pData, int length)
 {
     if (length <= 1) return;
-    if (length == 2)
+    for (int i = 0; i <= length / 2 - 1; ++i)
     {
-        std::swap(pData[0], pData[1]);
-    }
-    if (length == 4)
-    {
-        std::swap(pData[0], pData[3]);
-        std::swap(pData[1], pData[2]);
-    }
-    if (length == 8)
-    {
-        std::swap(pData[0], pData[7]);
-        std::swap(pData[1], pData[6]);
-        std::swap(pData[2], pData[5]);
-        std::swap(pData[3], pData[4]);
+        std::swap(pData[i], pData[length - i - 1]);
     }
 }
 
@@ -95,14 +83,14 @@ bool MidiReader::read(int byte_num)
 }
 
 template<typename T>
-bool MidiReader::read_var(const T &t, void* addr, size_t len)
+bool MidiReader::read_var(const T &t, void* addr, size_t len, bool is_translate)
 {
-    size_t sz = sizeof(t);
+    size_t sz = len ? len : sizeof(t);
     if (read(sz))
     {
         memcpy_s(addr, sz, buff.get(), sz);
         // 文件读出来默认是大端 要转换到小端
-        EndianSwap((char *)&t, len ? len : sz);   
+        if (!is_translate)EndianSwap((char *)&t, len ? len : sz);
         return true;
     }
     else
@@ -110,7 +98,6 @@ bool MidiReader::read_var(const T &t, void* addr, size_t len)
         PRINT_ERROR(ERROR_READ_HEADER)
             return false;
     }
-    RaiseException()
 }
 
 
@@ -139,7 +126,7 @@ bool MidiReader::read_file()
 
 bool MidiReader::read_header()
 {
-    if (read_var(midi_file.header.m_magic, &midi_file.header.m_magic, 1) &&
+    if (read_var(midi_file.header.m_magic, &midi_file.header.m_magic, 4, true) &&
         read_var(midi_file.header.m_seclen, &midi_file.header.m_seclen) &&
         read_var(midi_file.header.m_format, &midi_file.header.m_format) &&
         read_var(midi_file.header.m_ntracks, &midi_file.header.m_ntracks) &&
@@ -153,14 +140,15 @@ bool MidiReader::read_header()
 
 bool MidiReader::read_tracks()
 {
-    if (read_var(midi_file.tracks.m_magic, &midi_file.tracks.m_magic, 1) &&
+    if (read_var(midi_file.tracks.m_magic, &midi_file.tracks.m_magic, 4, true) &&
         read_var(midi_file.tracks.m_seclen, &midi_file.tracks.m_seclen))
     {
-        uint32_t remaining = midi_file.tracks.m_seclen;
-        while (remaining) {
+        int remaining = midi_file.tracks.m_seclen;
+        while (remaining > 0) {
             midi_file.tracks.m_midi_messages.push_back(MidiMessage());
-            if (!read_messages(midi_file.tracks.m_midi_messages.back())) return false;
-            remaining -= sizeof(midi_file.tracks.m_midi_messages.back());
+            MidiMessage &message = midi_file.tracks.m_midi_messages.back();
+            if (!read_messages(message)) return false;
+            remaining -= sizeof(message);
         }
         return true;
     }
@@ -179,69 +167,73 @@ bool MidiReader::read_messages(MidiMessage &message)
     if (m_status & 0x80)
         lastStatus = m_status;
     else
-        fs.seekg(-1, fs.tellg());  // FSeek(FTell() - 1);
+        //fs.seekg(-1, fs.tellg());  // FSeek(FTell() - 1);
 
     char m_channel = lastStatus & 0xf;
     if ((lastStatus & 0xf0) == 0x80)
     {
-        read_var(message.note_off_event, &message.note_off_event, 1);
+        read_var(message.note_off_event, &message.note_off_event, 2, true);
     }
     else if ((lastStatus & 0xf0) == 0x90)
     {
-        read_var(message.note_on_event, &message.note_on_event, 1);
+        read_var(message.note_on_event, &message.note_on_event, 2, true);
     }
     else if ((lastStatus & 0xf0) == 0xA0)
     {
-        read_var(message.note_pressure_event, &message.note_pressure_event, 1);
+        read_var(message.note_pressure_event, &message.note_pressure_event, 2, true);
     }
     else if ((lastStatus & 0xf0) == 0xB0)
     {
-        read_var(message.controller_event, &message.controller_event, 1);
+        read_var(message.controller_event, &message.controller_event, 2, true);
     }
     else if ((lastStatus & 0xf0) == 0xC0)
     {
-        read_var(message.program_event, &message.program_event, 1);
+        read_var(message.program_event, &message.program_event, 1, true);
     }
     else if ((lastStatus & 0xf0) == 0xD0)
     {
-        read_var(message.channel_pressure_event, &message.channel_pressure_event, 1);
+        read_var(message.channel_pressure_event, &message.channel_pressure_event, 1, true);
     }
     else if ((lastStatus & 0xf0) == 0xE0)
     {
-        read_var(message.pitch_bend_event, &message.pitch_bend_event, 1);
+        read_var(message.pitch_bend_event, &message.pitch_bend_event, 2, true);
     }
     else if (lastStatus == -1)
     {
-        MetaEvent meta_event;
+        read_meta_event(message.meta_event);
     }
     else if ((lastStatus & 0xf0) == 0xF0)
     {
-        SysexEvent sysex_event;
+        read_sysex_event(message.sysex_event);
     }
+    return true;
 }
 
 bool MidiReader::read_delta_time(DeltaTime &dt)
 {
-    uint32_t total = 0;
-    char t0;
-    char t1;
-    char t2;
-    char t3;
-    if (read_var(total, &total) &&
-        read_var(t0, &t0) &&
-        read_var(t1, &t1) &&
-        read_var(t2, &t2) &&
-        read_var(t3, &t3))
-    {
-        dt.init(total, t0, t1, t2, t3);
-        return true;
-    }
+    uint32_t &total = dt.total;
+
+    read_var(dt.t0, &dt.t0);
+    total += dt.t0 & 0x7f;
+    if (!(dt.t0 & 0x80)) return true;
+    read_var(dt.t1, &dt.t1);
+    total <<= 7;
+    total += dt.t1 & 0x7f;
+    if (!(dt.t1 & 0x80)) return true;
+    read_var(dt.t2, &dt.t2);
+    total <<= 7;
+    total += dt.t2 & 0x7f;
+    if (!(dt.t2 & 0x80)) return true;
+    read_var(dt.t3, &dt.t3);
+    total <<= 7;
+    total += dt.t3 & 0x7f;
+    if (!(dt.t3 & 0x80)) return true;
     return false;
 }
 
 bool MidiReader::read_meta_event(MetaEvent &me)
 {
-    read_var(me.m_type, &me.m_type, 1);
+    read_var(me.m_type, &me.m_type, true);
     read_delta_time(me.m_length);
     Type &m_type = me.m_type;
     DeltaTime &m_length = me.m_length;
@@ -298,41 +290,79 @@ bool MidiReader::read_meta_event(MetaEvent &me)
     }
     else if (m_type == META_TEMPO)
     {
-        read_var(me.m_usecPerQuarterNote, &me.m_usecPerQuarterNote);
-        read_var(me.m_bpm, &me.m_bpm);
-        uint32_t m_usecPerQuarterNote : 24; //位域
-        uint32_t m_bpm = 60000000 / m_usecPerQuarterNote;
-        fs.seekg(-1, fs.tellg());
+        uint32_t m_usecPerQuarterNote;
+        read_var(m_usecPerQuarterNote, &m_usecPerQuarterNote, 3);
+        me.m_usecPerQuarterNote = m_usecPerQuarterNote;
+        me.m_bpm = 60000000 / m_usecPerQuarterNote;
+        //fs.seekg(-1, fs.tellg());
     }
     else if (m_type == META_SMPTE_OFFSET)
     {
-        char m_hours;
-        char m_mins;
-        char m_secs;
-        char m_fps;
-        char m_fracFrames;
+        read_var(me.m_hours, &me.m_hours);
+        read_var(me.m_mins, &me.m_mins);
+        read_var(me.m_secs, &me.m_secs);
+        read_var(me.m_fps, &me.m_fps);
+        read_var(me.m_fracFrames, &me.m_fracFrames);
     }
     else if (m_type == META_TIME_SIGNATURE)
     {
-        char m_numerator;
-        char m_denominator;
-        char m_clocksPerClick;
-        char m_32ndPer4th;
+        read_var(me.m_numerator, &me.m_numerator);
+        read_var(me.m_denominator, &me.m_denominator);
+        read_var(me.m_clocksPerClick, &me.m_clocksPerClick);
+        read_var(me.m_32ndPer4th, &me.m_32ndPer4th);
     }
     else if (m_type == META_KEY_SIGNATURE)
     {
-        char m_flatsSharps;
-        char m_majorMinor;
+        read_var(me.m_flatsSharps, &me.m_flatsSharps);
+        read_var(me.m_majorMinor, &me.m_majorMinor);
     }
     else
     {
-        char m_data[m_length.total];
+        read_str(me.m_data, m_length.total);
     }
+    return true;
 }
 
 
 bool MidiReader::read_sysex_event(SysexEvent &se)
 {
-
+    read_delta_time(se.m_length);
+    read_str(se.m_message, se.m_length.total);
+    return true;
 }
+
+void MidiReader::print_header()
+{
+    MidiHeader &header = midi_file.header;
+    std::cout << "header : \n" <<
+        "m_magic = " << header.m_magic << "\t" <<
+        "m_seclen = " << header.m_seclen << "\t" <<
+        "m_format = " << header.m_format << "\t" <<
+        "m_ntracks = " << header.m_ntracks << "\t" <<
+        "m_tickdiv = " << header.m_tickdiv << "\n";
+}
+
+void MidiReader::print_tracks()
+{
+    MidiTrack &track = midi_file.tracks;
+    std::cout << "track : \n" <<
+        "m_magic = " << track.m_magic << "\t" <<
+        "m_seclen = " << track.m_seclen << "\t";
+    int count = 1;
+    for (const auto &msg : track.m_midi_messages)
+    {
+        std::cout << "msg" << count++ << " : \n" <<
+            "m_dtime = " << msg.m_dtime << "\t" <<
+            "m_status = " << msg.m_status << "\t" <<
+            "lastStatus = " << msg.lastStatus << "\n";
+    }
+}
+
+void MidiReader::print_file()
+{
+    print_header();
+    print_tracks();
+}
+
+
 

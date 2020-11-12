@@ -64,28 +64,13 @@ struct DeltaTime
     char t3;
 
     DeltaTime(){};
-
-    void init(uint32_t tot, char t_0, char t_1, char t_2, char t_3)
+    friend std::ostream &operator << (std::ostream &os, const DeltaTime &dt)
     {
-        total = tot;
-        t0 = t_0;
-        t1 = t_1;
-        t2 = t_2;
-        t3 = t_3;
-
-        total += t0 & 0x7f;
-        if (!(t0 & 0x80)) return;
-        total <<= 7;
-        total += t1 & 0x7f;
-        if (!(t1 & 0x80)) return;
-        total <<= 7;
-        total += t2 & 0x7f;
-        if (!(t2 & 0x80)) return;
-        total <<= 7;
-        total += t3 & 0x7f;
-        if (!(t3 & 0x80)) return;
+        os << dt.total;
+        return os;
     }
 };
+
 
 struct MetaEvent
 {
@@ -119,90 +104,7 @@ struct MetaEvent
     char m_majorMinor;
     std::string m_data;
 
-    void init()
-    {
-        if (m_type == META_SEQUENCE_NUM)
-        {
-            short m_seqNum;
-        }
-        else if (m_type == META_TEXT)
-        {
-            char m_text[m_length.total];
-        }
-        else if (m_type == META_COPYRIGHT)
-        {
-            char m_copyright[m_length.total];
-        }
-        else if (m_type == META_SEQUENCE_NAME)
-        {
-            char m_name[m_length.total];
-        }
-        else if (m_type == META_INSTRUMENT_NAME)
-        {
-            char m_name[m_length.total];
-        }
-        else if (m_type == META_LYRIC)
-        {
-            char m_lyric[m_length.total];
-        }
-        else if (m_type == META_MARKER)
-        {
-            char m_marker[m_length.total];
-        }
-        else if (m_type == META_CUE_POINT)
-        {
-            char m_cuePoint[m_length.total];
-        }
-        else if (m_type == META_PROGRAM_NAME)
-        {
-            char m_programName[m_length.total];
-        }
-        else if (m_type == META_DEVICE_NAME)
-        {
-            char m_deviceName[m_length.total];
-        }
-        else if (m_type == META_MIDI_CHANNEL_PREFIX)
-        {
-            char m_channelPrefix;
-        }
-        else if (m_type == META_MIDI_PORT)
-        {
-            char m_port;
-        }
-        else if (m_type == META_END_OF_TRACK)
-        {
-        }
-        else if (m_type == META_TEMPO)
-        {
-            uint32_t m_usecPerQuarterNote : 24; //位域
-            uint32_t m_bpm = 60000000 / m_usecPerQuarterNote;
-            FSeek(FTell() - 1);
-        }
-        else if (m_type == META_SMPTE_OFFSET)
-        {
-            char m_hours;
-            char m_mins;
-            char m_secs;
-            char m_fps;
-            char m_fracFrames;
-        }
-        else if (m_type == META_TIME_SIGNATURE)
-        {
-            char m_numerator;
-            char m_denominator;
-            char m_clocksPerClick;
-            char m_32ndPer4th;
-        }
-        else if (m_type == META_KEY_SIGNATURE)
-        {
-            char m_flatsSharps;
-            char m_majorMinor;
-        }
-        else
-        {
-            char m_data[m_length.total];
-        }
-    }
+    MetaEvent(){};
 };
 
 // message inner structs
@@ -263,7 +165,7 @@ struct PitchBendEvent
 struct SysexEvent
 {
     DeltaTime m_length;
-    std::vector<char> m_message;
+    std::string m_message;
 
     SysexEvent(){};
 };
@@ -284,12 +186,8 @@ struct MidiMessage
     ChannelPressureEvent channel_pressure_event;
     PitchBendEvent pitch_bend_event;
     MetaEvent meta_event;
+    SysexEvent sysex_event;
 
-
-    void init()
-    {
-
-    }
     MidiMessage(){};
 };
 
@@ -316,16 +214,15 @@ class MidiReader
 public:
     bool open_file(std::string file_path);
     bool read_file();
-    // len指定读取的结构大小(只有大于1才会进行大小端转换)
-    template<typename T> bool read_var(const T &t, void* addr, size_t len = 0);
+    // len指定读取的结构大小 is_str如果为true则不进行大小端转换
+    template<typename T> bool read_var(const T &t, void* addr, size_t len = 0, bool is_translate = false);
     bool read_str(std::string &str, size_t len);
     bool read_header();
     bool read_tracks();
-    // track inner
-    bool read_messages(MidiMessage &message);
-    bool read_delta_time(DeltaTime &dt);
-    bool read_meta_event(MetaEvent &me);
-    bool read_sysex_event(SysexEvent &se);
+    // print
+    void print_header();
+    void print_tracks();
+    void print_file();
 
     MidiReader();
     MidiReader(std::string file_path);
@@ -348,6 +245,11 @@ private:
     bool read(int byte_num);
     void buff_clean();
     void init();
+    // track inner
+    bool read_messages(MidiMessage &message);
+    bool read_delta_time(DeltaTime &dt);
+    bool read_meta_event(MetaEvent &me);
+    bool read_sysex_event(SysexEvent &se);
 
 };
 
