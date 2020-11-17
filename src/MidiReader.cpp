@@ -114,23 +114,23 @@ bool MidiReader::read_str(std::string &str, size_t len)
 }
 
 
-bool MidiReader::read_file()
+bool MidiReader::read_file(MidiFile &file)
 {
-    read_header();
-    if (is_read_header_ok && read_tracks())
+    read_header(file.header);
+    if (is_read_header_ok && read_tracks(file.tracks))
     {
         return true;
     }
     return false;
 }
 
-bool MidiReader::read_header()
+bool MidiReader::read_header(MidiHeader &header)
 {
-    if (read_var(midi_file.header.m_magic, &midi_file.header.m_magic, 4, true) &&
-        read_var(midi_file.header.m_seclen, &midi_file.header.m_seclen) &&
-        read_var(midi_file.header.m_format, &midi_file.header.m_format) &&
-        read_var(midi_file.header.m_ntracks, &midi_file.header.m_ntracks) &&
-        read_var(midi_file.header.m_tickdiv, &midi_file.header.m_tickdiv))
+    if (read_var(header.m_magic, &header.m_magic, 4, true) &&
+        read_var(header.m_seclen, &header.m_seclen) &&
+        read_var(header.m_format, &header.m_format) &&
+        read_var(header.m_ntracks, &header.m_ntracks) &&
+        read_var(header.m_tickdiv, &header.m_tickdiv))
     {
         is_read_header_ok = true;
         return true;
@@ -138,15 +138,15 @@ bool MidiReader::read_header()
     return false;
 }
 
-bool MidiReader::read_tracks()
+bool MidiReader::read_tracks(MidiTrack &tracks)
 {
-    if (read_var(midi_file.tracks.m_magic, &midi_file.tracks.m_magic, 4, true) &&
-        read_var(midi_file.tracks.m_seclen, &midi_file.tracks.m_seclen))
+    if (read_var(tracks.m_magic, &tracks.m_magic, 4, true) &&
+        read_var(tracks.m_seclen, &tracks.m_seclen))
     {
-        int remaining = midi_file.tracks.m_seclen;
+        int remaining = tracks.m_seclen;
         while (remaining > 0) {
-            midi_file.tracks.m_midi_messages.push_back(MidiMessage());
-            MidiMessage &message = midi_file.tracks.m_midi_messages.back();
+            tracks.m_midi_messages.push_back(MidiMessage());
+            MidiMessage &message = tracks.m_midi_messages.back();
             if (!read_messages(message)) return false;
             remaining -= sizeof(message);
         }
@@ -331,9 +331,8 @@ bool MidiReader::read_sysex_event(SysexEvent &se)
     return true;
 }
 
-void MidiReader::print_header()
+void MidiReader::print_header(const MidiHeader &header)
 {
-    MidiHeader &header = midi_file.header;
     std::cout << "header : \n" <<
         "m_magic = " << header.m_magic << "\t" <<
         "m_seclen = " << header.m_seclen << "\t" <<
@@ -342,14 +341,13 @@ void MidiReader::print_header()
         "m_tickdiv = " << header.m_tickdiv << "\n";
 }
 
-void MidiReader::print_tracks()
+void MidiReader::print_tracks(const MidiTrack &tracks)
 {
-    MidiTrack &track = midi_file.tracks;
     std::cout << "track : \n" <<
-        "m_magic = " << track.m_magic << "\t" <<
-        "m_seclen = " << track.m_seclen << "\t";
+        "m_magic = " << tracks.m_magic << "\t" <<
+        "m_seclen = " << tracks.m_seclen << "\t";
     int count = 1;
-    for (const auto &msg : track.m_midi_messages)
+    for (const auto &msg : tracks.m_midi_messages)
     {
         std::cout << "msg" << count++ << " : \n" <<
             "m_dtime = " << msg.m_dtime << "\t" <<
@@ -358,10 +356,10 @@ void MidiReader::print_tracks()
     }
 }
 
-void MidiReader::print_file()
+void MidiReader::print_file(const MidiFile &file)
 {
-    print_header();
-    print_tracks();
+    print_header(file.header);
+    print_tracks(file.tracks);
 }
 
 

@@ -21,7 +21,8 @@ void test_read()
     const char * file_name = "D:\\midi-files\\YS01.MID";
     MidiReader reader;
     reader.open_file(file_name);
-    reader.read_file();
+    MidiFile file;
+    reader.read_file(file);
 
     reader.print_file();
 }

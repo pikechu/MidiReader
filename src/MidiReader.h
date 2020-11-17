@@ -213,16 +213,16 @@ class MidiReader
 {
 public:
     bool open_file(std::string file_path);
-    bool read_file();
+    bool read_file(MidiFile &file);
     // len指定读取的结构大小 is_str如果为true则不进行大小端转换
     template<typename T> bool read_var(const T &t, void* addr, size_t len = 0, bool is_translate = false);
     bool read_str(std::string &str, size_t len);
-    bool read_header();
-    bool read_tracks();
+    bool read_header(MidiHeader &header);
+    bool read_tracks(MidiTrack &tracks);
     // print
-    void print_header();
-    void print_tracks();
-    void print_file();
+    void print_header(const MidiHeader &header);
+    void print_tracks(const MidiTrack &tracks);
+    void print_file(const MidiFile &file);
 
     MidiReader();
     MidiReader(std::string file_path);
@@ -238,8 +238,6 @@ private:
     std::fstream fs;
 
     std::shared_ptr<char> buff;
-
-    MidiFile midi_file;
 
     bool is_file_opened(){ return fs.is_open(); }
     bool read(int byte_num);
