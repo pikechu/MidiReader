@@ -10,6 +10,8 @@
 #include <memory>
 
 
+//const int BUFF_SIZE = 1024;
+
 enum Format : int16_t
 {
     MIDI_SINGLE = 0,
@@ -66,7 +68,7 @@ struct DeltaTime
     DeltaTime(){};
     friend std::ostream &operator << (std::ostream &os, const DeltaTime &dt)
     {
-        os << dt.total;
+        os << "t0 =" << dt.t0;
         return os;
     }
 };
@@ -214,8 +216,8 @@ class MidiReader
 public:
     bool open_file(std::string file_path);
     bool read_file(MidiFile &file);
-    // len指定读取的结构大小 is_str如果为true则不进行大小端转换
-    template<typename T> bool read_var(const T &t, void* addr, size_t len = 0, bool is_translate = false);
+    // len指定读取的结构大小 is_char如果为true则不进行大小端转换
+    template<typename T> bool read_var(const T &t, void* addr, size_t len = 0, bool is_char = false);
     bool read_str(std::string &str, size_t len);
     bool read_header(MidiHeader &header);
     bool read_tracks(MidiTrack &tracks);
@@ -227,15 +229,15 @@ public:
     MidiReader();
     MidiReader(std::string file_path);
     ~MidiReader();
-
-private:
+    // private:
+public:
     // 文件总大小
     int file_size;
     // 当前读到的位置
     int current_pos;
    
     bool is_read_header_ok;
-    std::fstream fs;
+    std::ifstream fs;
 
     std::shared_ptr<char> buff;
 
