@@ -1,0 +1,3 @@
+MIDI格式 http://www.voidcn.com/article/p-adxqjbjl-bok.html
+MIDI文件格式解析 https://www.jianshu.com/p/59d74800b43b
+如何看懂一份MIDI文件 https://www.jianshu.com/p/31d02765e1ec
